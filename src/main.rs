@@ -10,7 +10,7 @@ mod ui;
 use cpu::CpuMonitor;
 use disk::DiskMonitor;
 use memory::MemoryMonitor;
-use ui::{create_ui, HISTORY_LEN};
+use ui::{create_ui, Histories, HISTORY_LEN};
 
 fn main() {
     let app = Application::builder()
@@ -25,7 +25,8 @@ fn main() {
             .default_height(500)
             .build();
 
-        let (main_box, widgets, cpu_history, mem_history, disk_histories) = create_ui();
+        let (main_box, widgets, hist) = create_ui();
+        let Histories { cpu: cpu_history, memory: mem_history, disks: disk_histories } = hist;
 
         // Wrap widgets in Rc<RefCell<>> so we can share them with the timeout closure.
         let widgets = std::rc::Rc::new(std::cell::RefCell::new(widgets));

@@ -9,14 +9,59 @@ use gtk4::{Box, DrawingArea, Label, Orientation};
 /// Also used by the update loop in main.rs to size the ring buffers.
 pub const HISTORY_LEN: usize = 120;
 
-/// Grid line color (faint white).
-const GRID_A: f64 = 0.08;
+// ── Colours ──────────────────────────────────────────────────────────────────
+
+/// An RGB colour with components in [0.0, 1.0].
+#[derive(Clone, Copy)]
+struct Color {
+    r: f64,
+    g: f64,
+    b: f64,
+}
+
+impl Color {
+    /// Construct from the familiar 0-255 component range.
+    const fn from_u8(r: u8, g: u8, b: u8) -> Self {
+        // Integer-to-float casts in const fn are stable since Rust 1.45.
+        Self {
+            r: r as f64 / 255.0,
+            g: g as f64 / 255.0,
+            b: b as f64 / 255.0,
+        }
+    }
+}
+
+/// Opacity of the filled area under every graph curve.
+const FILL_ALPHA: f64 = 0.35;
+
+/// Faint white guide lines drawn at 25 / 50 / 75 %.
+const GRID_ALPHA: f64 = 0.08;
+
+// Per-panel colour pairs (fill = lighter, line = darker stroke).
+const CPU_FILL:        Color = Color::from_u8(100, 180, 255); // blue
+const CPU_LINE:        Color = Color::from_u8( 30, 100, 200);
+const MEM_FILL:        Color = Color::from_u8(100, 220, 130); // green
+const MEM_LINE:        Color = Color::from_u8( 30, 160,  60);
+const DISK_READ_FILL:  Color = Color::from_u8(  0, 200, 180); // teal
+const DISK_READ_LINE:  Color = Color::from_u8(  0, 140, 120);
+const DISK_WRITE_FILL: Color = Color::from_u8(255, 140,  30); // amber
+const DISK_WRITE_LINE: Color = Color::from_u8(200,  80,   0);
+
+// ── History buffer types ──────────────────────────────────────────────────────
 
 /// Shared history buffer holding 0-1 fractions (CPU, memory).
 pub type History = Rc<RefCell<VecDeque<f64>>>;
 
 /// Shared history buffer holding (read_bps, write_bps) pairs (disk).
 pub type ThroughputHistory = Rc<RefCell<VecDeque<(f64, f64)>>>;
+
+/// Named histories returned by `create_ui`, one field per data source.
+/// Keeps `create_ui`'s return type readable and future-proof.
+pub struct Histories {
+    pub cpu:   History,
+    pub memory: History,
+    pub disks: Vec<ThroughputHistory>,
+}
 
 fn new_history() -> History {
     Rc::new(RefCell::new(VecDeque::with_capacity(HISTORY_LEN + 1)))
@@ -25,6 +70,8 @@ fn new_history() -> History {
 fn new_throughput_history() -> ThroughputHistory {
     Rc::new(RefCell::new(VecDeque::with_capacity(HISTORY_LEN + 1)))
 }
+
+// ── Widget handles ────────────────────────────────────────────────────────────
 
 /// Handles to every widget the update loop needs to touch.
 pub struct Widgets {
@@ -46,9 +93,10 @@ pub struct Widgets {
     pub disk_graphs: Vec<DrawingArea>,
 }
 
+// ── Graph constructors ────────────────────────────────────────────────────────
+
 /// Build a mountain-style 2D history graph for a 0-1 fraction metric.
-/// `fill` is RGBA for the filled area; `line` is RGB for the stroke.
-fn make_graph(history: History, fill: (f64, f64, f64, f64), line: (f64, f64, f64)) -> DrawingArea {
+fn make_graph(history: History, fill: Color, line: Color) -> DrawingArea {
     let area = DrawingArea::builder()
         .height_request(80)
         .hexpand(true)
@@ -63,7 +111,7 @@ fn make_graph(history: History, fill: (f64, f64, f64, f64), line: (f64, f64, f64
         cr.set_source_rgba(0.17, 0.17, 0.17, 1.0);
         let _ = cr.paint();
 
-        cr.set_source_rgba(1.0, 1.0, 1.0, GRID_A);
+        cr.set_source_rgba(1.0, 1.0, 1.0, GRID_ALPHA);
         cr.set_line_width(1.0);
         for pct in &[0.25_f64, 0.50, 0.75] {
             let y = h - pct * h;
@@ -80,9 +128,8 @@ fn make_graph(history: History, fill: (f64, f64, f64, f64), line: (f64, f64, f64
         let x_offset = (HISTORY_LEN - n) as f64 * step;
 
         let point = |i: usize| -> (f64, f64) {
-            let frac = data[i];
             let x = x_offset + i as f64 * step;
-            let y = h - frac * (h - 2.0);
+            let y = h - data[i] * (h - 2.0);
             (x, y)
         };
 
@@ -96,7 +143,7 @@ fn make_graph(history: History, fill: (f64, f64, f64, f64), line: (f64, f64, f64
         cr.line_to(xn, h);
         cr.line_to(x0, h);
         cr.close_path();
-        cr.set_source_rgba(fill.0, fill.1, fill.2, fill.3);
+        cr.set_source_rgba(fill.r, fill.g, fill.b, FILL_ALPHA);
         let _ = cr.fill_preserve();
 
         cr.new_path();
@@ -105,7 +152,7 @@ fn make_graph(history: History, fill: (f64, f64, f64, f64), line: (f64, f64, f64
             let (xi, yi) = point(i);
             cr.line_to(xi, yi);
         }
-        cr.set_source_rgb(line.0, line.1, line.2);
+        cr.set_source_rgb(line.r, line.g, line.b);
         cr.set_line_width(2.0);
         let _ = cr.stroke();
     });
@@ -131,7 +178,7 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
         cr.set_source_rgba(0.17, 0.17, 0.17, 1.0);
         let _ = cr.paint();
 
-        cr.set_source_rgba(1.0, 1.0, 1.0, GRID_A);
+        cr.set_source_rgba(1.0, 1.0, 1.0, GRID_ALPHA);
         cr.set_line_width(1.0);
         for pct in &[0.25_f64, 0.50, 0.75] {
             let y = h - pct * h;
@@ -144,11 +191,11 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
             return;
         }
 
-        // Auto-scale: find the peak across both traces in the visible window.
-        // Use a minimum of 1.0 to avoid division by zero when the disk is idle.
+        // Auto-scale to the peak across both traces; minimum 1.0 avoids
+        // division by zero when the disk is idle.
         let max_val = data
             .iter()
-            .flat_map(|&(r, wr)| [r, wr])
+            .flat_map(|&(r, w)| [r, w])
             .fold(1.0_f64, f64::max);
 
         let step = w / (HISTORY_LEN as f64 - 1.0);
@@ -159,54 +206,33 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
             (x_offset + i as f64 * step, h - frac * (h - 2.0))
         };
 
-        // ── Read trace (teal) ────────────────────────────────────────────────
-        {
-            let (x0, y0) = xy(0, data[0].0);
+        // Each trace: (sample extractor, fill colour, stroke colour).
+        let traces: [(fn(&(f64, f64)) -> f64, Color, Color); 2] = [
+            (|s: &(f64, f64)| s.0, DISK_READ_FILL,  DISK_READ_LINE),  // teal  – read
+            (|s: &(f64, f64)| s.1, DISK_WRITE_FILL, DISK_WRITE_LINE), // amber – write
+        ];
+
+        for (get, fill, line) in traces {
+            let (x0, y0) = xy(0, get(&data[0]));
             cr.move_to(x0, y0);
             for i in 1..n {
-                let (xi, yi) = xy(i, data[i].0);
+                let (xi, yi) = xy(i, get(&data[i]));
                 cr.line_to(xi, yi);
             }
-            let (xn, _) = xy(n - 1, data[n - 1].0);
+            let (xn, _) = xy(n - 1, get(&data[n - 1]));
             cr.line_to(xn, h);
             cr.line_to(x0, h);
             cr.close_path();
-            cr.set_source_rgba(0.0, 200.0 / 255.0, 180.0 / 255.0, 0.35);
+            cr.set_source_rgba(fill.r, fill.g, fill.b, FILL_ALPHA);
             let _ = cr.fill_preserve();
 
             cr.new_path();
             cr.move_to(x0, y0);
             for i in 1..n {
-                let (xi, yi) = xy(i, data[i].0);
+                let (xi, yi) = xy(i, get(&data[i]));
                 cr.line_to(xi, yi);
             }
-            cr.set_source_rgb(0.0, 140.0 / 255.0, 120.0 / 255.0);
-            cr.set_line_width(2.0);
-            let _ = cr.stroke();
-        }
-
-        // ── Write trace (amber) ──────────────────────────────────────────────
-        {
-            let (x0, y0) = xy(0, data[0].1);
-            cr.move_to(x0, y0);
-            for i in 1..n {
-                let (xi, yi) = xy(i, data[i].1);
-                cr.line_to(xi, yi);
-            }
-            let (xn, _) = xy(n - 1, data[n - 1].1);
-            cr.line_to(xn, h);
-            cr.line_to(x0, h);
-            cr.close_path();
-            cr.set_source_rgba(1.0, 140.0 / 255.0, 30.0 / 255.0, 0.35);
-            let _ = cr.fill_preserve();
-
-            cr.new_path();
-            cr.move_to(x0, y0);
-            for i in 1..n {
-                let (xi, yi) = xy(i, data[i].1);
-                cr.line_to(xi, yi);
-            }
-            cr.set_source_rgb(200.0 / 255.0, 80.0 / 255.0, 0.0);
+            cr.set_source_rgb(line.r, line.g, line.b);
             cr.set_line_width(2.0);
             let _ = cr.stroke();
         }
@@ -215,11 +241,10 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
     area
 }
 
-/// Build the entire UI.
-/// Returns: root widget, widget handles, CPU history, memory history,
-/// and per-disk throughput histories (up to 3).
-pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHistory>) {
-    // ── Root container ──────────────────────────────────────────────────────
+// ── UI assembly ───────────────────────────────────────────────────────────────
+
+/// Build the entire UI and return widget handles plus the shared history buffers.
+pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     let main_box = Box::builder()
         .orientation(Orientation::Vertical)
         .spacing(12)
@@ -229,37 +254,23 @@ pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHisto
         .margin_end(12)
         .build();
 
-    // ── CPU panel (blue) ─────────────────────────────────────────────────────
+    // ── CPU panel ────────────────────────────────────────────────────────────
     let cpu_history = new_history();
-    let cpu_graph = make_graph(
-        Rc::clone(&cpu_history),
-        (100.0 / 255.0, 180.0 / 255.0, 255.0 / 255.0, 0.35),
-        (30.0 / 255.0, 100.0 / 255.0, 200.0 / 255.0),
-    );
+    let cpu_graph = make_graph(Rc::clone(&cpu_history), CPU_FILL, CPU_LINE);
     let cpu_percent = Label::new(Some("0.0%"));
-    let cpu_box = Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(4)
-        .build();
+    let cpu_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
     cpu_box.append(&Label::new(Some("CPU Usage")));
     cpu_box.append(&cpu_percent);
     cpu_box.append(&cpu_graph);
 
-    // ── Memory panel (green) ─────────────────────────────────────────────────
+    // ── Memory panel ─────────────────────────────────────────────────────────
     let mem_history = new_history();
-    let mem_graph = make_graph(
-        Rc::clone(&mem_history),
-        (100.0 / 255.0, 220.0 / 255.0, 130.0 / 255.0, 0.35),
-        (30.0 / 255.0, 160.0 / 255.0, 60.0 / 255.0),
-    );
+    let mem_graph = make_graph(Rc::clone(&mem_history), MEM_FILL, MEM_LINE);
     let mem_total = Label::new(Some("Total: —"));
-    let mem_used = Label::new(Some("Used:  —"));
-    let mem_free = Label::new(Some("Avail: —"));
-    let mem_swap = Label::new(Some("Swap:  —"));
-    let mem_box = Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(4)
-        .build();
+    let mem_used  = Label::new(Some("Used:  —"));
+    let mem_free  = Label::new(Some("Avail: —"));
+    let mem_swap  = Label::new(Some("Swap:  —"));
+    let mem_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
     mem_box.append(&Label::new(Some("Memory")));
     mem_box.append(&mem_total);
     mem_box.append(&mem_used);
@@ -267,21 +278,16 @@ pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHisto
     mem_box.append(&mem_swap);
     mem_box.append(&mem_graph);
 
-    // ── Disk panel (teal reads / amber writes, auto-scaled) ──────────────────
+    // ── Disk panel ───────────────────────────────────────────────────────────
     let disk_histories: Vec<ThroughputHistory> = (0..3).map(|_| new_throughput_history()).collect();
     let disk_graphs: Vec<DrawingArea> = disk_histories
         .iter()
         .map(|h| make_throughput_graph(Rc::clone(h)))
         .collect();
-
     let disk1 = Label::new(Some("Disk 1: —"));
     let disk2 = Label::new(Some("Disk 2: —"));
     let disk3 = Label::new(Some("Disk 3: —"));
-
-    let disk_box = Box::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(4)
-        .build();
+    let disk_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
     disk_box.append(&Label::new(Some("Disks  (teal = read, amber = write)")));
     disk_box.append(&disk1);
     disk_box.append(&disk_graphs[0]);
@@ -290,7 +296,7 @@ pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHisto
     disk_box.append(&disk3);
     disk_box.append(&disk_graphs[2]);
 
-    // ── Assemble ─────────────────────────────────────────────────────────────
+    // ── Assemble ──────────────────────────────────────────────────────────────
     main_box.append(&cpu_box);
     main_box.append(&mem_box);
     main_box.append(&disk_box);
@@ -309,5 +315,11 @@ pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHisto
         disk_graphs,
     };
 
-    (main_box, widgets, cpu_history, mem_history, disk_histories)
+    let histories = Histories {
+        cpu: cpu_history,
+        memory: mem_history,
+        disks: disk_histories,
+    };
+
+    (main_box, widgets, histories)
 }
