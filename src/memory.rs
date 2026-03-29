@@ -7,7 +7,7 @@ pub struct MemoryMonitor {
 
 impl MemoryMonitor {
     pub fn new() -> Self {
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         sys.refresh_memory();
         Self { sys }
     }

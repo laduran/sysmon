@@ -9,7 +9,7 @@ impl CpuMonitor {
     /// Create a new monitor – grabs an initial CPU snapshot so the first
     /// `update()` call has a meaningful baseline to diff against.
     pub fn new() -> Self {
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         // First refresh to establish a baseline
         sys.refresh_cpu();
         // Sleep the minimum required interval then refresh again so the

@@ -7,7 +7,7 @@ pub struct DiskMonitor {
 
 impl DiskMonitor {
     pub fn new() -> Self {
-        let mut sys = System::new_all();
+        let mut sys = System::new();
         sys.refresh_disks_list();
         sys.refresh_disks();
         Self { sys }
