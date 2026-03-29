@@ -18,7 +18,7 @@ impl MemoryMonitor {
         MemoryStats {
             total:      self.sys.total_memory(),
             used:       self.sys.used_memory(),
-            free:       self.sys.free_memory(),
+            free:       self.sys.available_memory(),
             swap_total: self.sys.total_swap(),
             swap_used:  self.sys.used_swap(),
         }
@@ -29,7 +29,7 @@ impl MemoryMonitor {
 pub struct MemoryStats {
     pub total:      u64, // bytes
     pub used:       u64, // bytes
-    pub free:       u64, // bytes
+    pub free:       u64, // bytes (available memory, not just MemFree)
     pub swap_total: u64,
     pub swap_used:  u64,
 }
