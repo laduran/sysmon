@@ -6,6 +6,57 @@ and what to work on next. A new Claude session should read this file (plus
 
 ---
 
+## Session — 2026-03-29 (continued)
+
+### Completed
+
+- **Addressed second round of Devin code quality feedback:**
+  - Cached physical device list in `DiskMonitor::new()` — `physical_devices()`
+    was re-running `readdir("/sys/block")` + sort every second; devices are
+    stable at runtime so enumerate once into `self.devices`
+  - Extracted `push_history<T>()` generic helper in `ui.rs` — the
+    borrow/len-check/pop/push block was copy-pasted three times in `main.rs`;
+    single function now owns the invariant, preventing omission errors when
+    adding future panels
+  - Upgraded `sysinfo` 0.29 → 0.38 — old trait-based API (`CpuExt`,
+    `SystemExt`) was removed in 0.30; on Arch (rolling release) a `cargo update`
+    could have silently broken the build. Updated `cpu.rs` and `memory.rs` to
+    current direct-method API; `refresh_cpu()` → `refresh_cpu_all()`,
+    `System::MINIMUM_CPU_UPDATE_INTERVAL` replaced with `Duration::from_millis(200)`
+  - Added `const BG: Color = Color::from_u8(43, 43, 43)` — last inline magic
+    number in the draw closures; now consistent with the named colour constants
+
+- **Bumped Cargo.toml to `edition = "2024"`** — Rust 2024 stabilised in 1.85
+  (Feb 2025); no code changes required, builds cleanly on Rust 1.94.1
+
+- **Established Ralph Loop workflow.** Created `PRD.md` and `PROGRESS.md`;
+  introduced `Histories` struct to replace positionally-ambiguous 5-tuple
+  return from `create_ui()`
+
+### Decisions
+
+- Agreed to upgrade sysinfo proactively rather than wait for breakage — Arch
+  Linux's rolling release means `cargo update` could pull in a breaking version
+  at any time.
+- `Duration::from_millis(200)` is the documented minimum CPU refresh interval
+  in sysinfo (was the value of the now-removed `MINIMUM_CPU_UPDATE_INTERVAL`).
+
+### Known Issues / Notes
+
+- The `glib = "0.18"` direct dependency and `gtk4 = "0.11"` (which pulls in
+  `glib 0.22`) coexist with minor friction — `gtk4::glib::` prefix needed for
+  GTK signal return types. Consider dropping the direct `glib` dependency and
+  using `gtk4::glib` throughout in a future cleanup.
+
+### Next Session Should
+
+- Consider adding `cargo clippy --deny warnings` as a pre-commit hook or CI check.
+- Begin scoping the network throughput panel (see PRD backlog).
+- Explore Ralph Loop scripting: a shell script to end and restart Claude
+  sessions automatically, with machine-verifiable completion criteria.
+
+---
+
 ## Session — 2026-03-29
 
 ### Completed
