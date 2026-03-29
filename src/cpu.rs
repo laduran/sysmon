@@ -22,8 +22,11 @@ impl CpuMonitor {
     /// Return the current overall CPU usage as a fraction in [0.0, 1.0].
     pub fn update(&mut self) -> f64 {
         self.sys.refresh_cpu();
-        let avg = self.sys.cpus().iter().map(|c| c.cpu_usage() as f64).sum::<f64>()
-            / self.sys.cpus().len() as f64;
+        let cpus = self.sys.cpus();
+        if cpus.is_empty() {
+            return 0.0;
+        }
+        let avg = cpus.iter().map(|c| c.cpu_usage() as f64).sum::<f64>() / cpus.len() as f64;
         (avg / 100.0).clamp(0.0, 1.0)
     }
 }
