@@ -254,7 +254,7 @@ pub fn create_ui() -> (gtk4::Box, Widgets, History, History, Vec<ThroughputHisto
     );
     let mem_total = Label::new(Some("Total: —"));
     let mem_used = Label::new(Some("Used:  —"));
-    let mem_free = Label::new(Some("Free:  —"));
+    let mem_free = Label::new(Some("Avail: —"));
     let mem_swap = Label::new(Some("Swap:  —"));
     let mem_box = Box::builder()
         .orientation(Orientation::Vertical)

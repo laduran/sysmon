@@ -18,7 +18,7 @@ impl MemoryMonitor {
         MemoryStats {
             total:      self.sys.total_memory(),
             used:       self.sys.used_memory(),
-            free:       self.sys.free_memory(),
+            free:       self.sys.available_memory(),
             swap_total: self.sys.total_swap(),
             swap_used:  self.sys.used_swap(),
         }
