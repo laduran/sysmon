@@ -68,7 +68,7 @@ fn main() {
             w.mem_used
                 .set_text(&format!("Used:  {:.2} GB", to_gb(mem_stats.used)));
             w.mem_free
-                .set_text(&format!("Free:  {:.2} GB", to_gb(mem_stats.free)));
+                .set_text(&format!("Avail: {:.2} GB", to_gb(mem_stats.free)));
             w.mem_swap.set_text(&format!(
                 "Swap:  {:.0} MB used / {:.0} MB total",
                 to_mb(mem_stats.swap_used),

@@ -11,7 +11,7 @@ const HISTORY_LEN: usize = 120;
 /// Fill color for the mountain graph area (light blue, semi-transparent).
 const FILL_R: f64 = 100.0 / 255.0;
 const FILL_G: f64 = 180.0 / 255.0;
-const FILL_B: f64 = 255.0 / 255.0;
+const FILL_B: f64 = 1.0;
 const FILL_A: f64 = 0.35;
 
 /// Stroke color for the mountain graph line (darker blue).
@@ -154,7 +154,7 @@ pub fn create_ui() -> (gtk4::Box, Widgets, CpuHistory) {
     // ── Memory panel ────────────────────────────────────────────────────────
     let mem_total = Label::new(Some("Total: —"));
     let mem_used = Label::new(Some("Used:  —"));
-    let mem_free = Label::new(Some("Free:  —"));
+    let mem_free = Label::new(Some("Avail: —"));
     let mem_swap = Label::new(Some("Swap:  —"));
     let mem_progress = ProgressBar::new();
     mem_progress.set_fraction(0.0);
