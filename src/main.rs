@@ -10,10 +10,7 @@ mod ui;
 use cpu::CpuMonitor;
 use disk::DiskMonitor;
 use memory::MemoryMonitor;
-use ui::create_ui;
-
-/// Maximum history samples to keep (matches HISTORY_LEN in ui.rs).
-const HISTORY_LEN: usize = 120;
+use ui::{create_ui, HISTORY_LEN};
 
 fn main() {
     let app = Application::builder()

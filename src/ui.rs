@@ -6,7 +6,8 @@ use gtk4::prelude::*;
 use gtk4::{Box, DrawingArea, Label, Orientation, ProgressBar};
 
 /// How many seconds of CPU history to keep.
-const HISTORY_LEN: usize = 120;
+/// Also used by the update loop in main.rs to size the ring buffer.
+pub const HISTORY_LEN: usize = 120;
 
 /// Fill color for the mountain graph area (light blue, semi-transparent).
 const FILL_R: f64 = 100.0 / 255.0;
