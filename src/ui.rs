@@ -31,6 +31,9 @@ impl Color {
     }
 }
 
+/// Graph background colour.
+const BG: Color = Color::from_u8(43, 43, 43);
+
 /// Opacity of the filled area under every graph curve.
 const FILL_ALPHA: f64 = 0.35;
 
@@ -71,6 +74,16 @@ fn new_throughput_history() -> ThroughputHistory {
     Rc::new(RefCell::new(VecDeque::with_capacity(HISTORY_LEN + 1)))
 }
 
+/// Push one sample into a history ring buffer, evicting the oldest entry when full.
+/// Works for both `History` (f64) and `ThroughputHistory` ((f64, f64)).
+pub fn push_history<T>(history: &Rc<RefCell<VecDeque<T>>>, value: T) {
+    let mut h = history.borrow_mut();
+    if h.len() == HISTORY_LEN {
+        h.pop_front();
+    }
+    h.push_back(value);
+}
+
 // ── Widget handles ────────────────────────────────────────────────────────────
 
 /// Handles to every widget the update loop needs to touch.
@@ -108,7 +121,7 @@ fn make_graph(history: History, fill: Color, line: Color) -> DrawingArea {
         let data = history.borrow();
         let n = data.len();
 
-        cr.set_source_rgba(0.17, 0.17, 0.17, 1.0);
+        cr.set_source_rgb(BG.r, BG.g, BG.b);
         let _ = cr.paint();
 
         cr.set_source_rgba(1.0, 1.0, 1.0, GRID_ALPHA);
@@ -175,7 +188,7 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
         let data = history.borrow();
         let n = data.len();
 
-        cr.set_source_rgba(0.17, 0.17, 0.17, 1.0);
+        cr.set_source_rgb(BG.r, BG.g, BG.b);
         let _ = cr.paint();
 
         cr.set_source_rgba(1.0, 1.0, 1.0, GRID_ALPHA);

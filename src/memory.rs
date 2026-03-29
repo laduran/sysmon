@@ -1,4 +1,4 @@
-use sysinfo::{System, SystemExt};
+use sysinfo::System;
 
 /// Holds the current memory statistics (all values in bytes).
 pub struct MemoryMonitor {

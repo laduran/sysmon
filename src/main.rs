@@ -10,7 +10,7 @@ mod ui;
 use cpu::CpuMonitor;
 use disk::DiskMonitor;
 use memory::MemoryMonitor;
-use ui::{create_ui, Histories, HISTORY_LEN};
+use ui::{create_ui, push_history, Histories};
 
 fn main() {
     let app = Application::builder()
@@ -62,13 +62,7 @@ fn main() {
 
             // ── CPU ────────────────────────────────────────────────────────
             w.cpu_percent.set_text(&format!("{:.1}%", cpu_frac * 100.0));
-            {
-                let mut hist = cpu_history.borrow_mut();
-                if hist.len() == HISTORY_LEN {
-                    hist.pop_front();
-                }
-                hist.push_back(cpu_frac);
-            }
+            push_history(&cpu_history, cpu_frac);
             w.cpu_graph.queue_draw();
 
             // ── Memory ──────────────────────────────────────────────────────
@@ -87,11 +81,7 @@ fn main() {
             ));
             if mem_stats.total > 0 {
                 let frac = (mem_stats.used as f64 / mem_stats.total as f64).clamp(0.0, 1.0);
-                let mut hist = mem_history.borrow_mut();
-                if hist.len() == HISTORY_LEN {
-                    hist.pop_front();
-                }
-                hist.push_back(frac);
+                push_history(&mem_history, frac);
             }
             w.mem_graph.queue_draw();
 
@@ -105,13 +95,7 @@ fn main() {
                     fmt_rate(*write_bps),
                 ));
                 disk_labels[i].set_visible(true);
-                {
-                    let mut hist = disk_histories[i].borrow_mut();
-                    if hist.len() == HISTORY_LEN {
-                        hist.pop_front();
-                    }
-                    hist.push_back((*read_bps, *write_bps));
-                }
+                push_history(&disk_histories[i], (*read_bps, *write_bps));
                 w.disk_graphs[i].set_visible(true);
                 w.disk_graphs[i].queue_draw();
             }

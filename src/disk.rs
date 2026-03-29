@@ -3,6 +3,8 @@ use std::fs;
 
 /// Tracks per-physical-disk I/O throughput by diffing `/proc/diskstats`.
 pub struct DiskMonitor {
+    /// Physical device names, enumerated once at construction time.
+    devices: Vec<String>,
     /// Previous cumulative sector counts: device -> (read_sectors, write_sectors).
     prev: HashMap<String, (u64, u64)>,
     /// Cached display names: device -> "nvme0n1 · WD_BLACK SN770 1TB".
@@ -12,6 +14,7 @@ pub struct DiskMonitor {
 impl DiskMonitor {
     pub fn new() -> Self {
         Self {
+            devices: physical_devices(),
             prev: HashMap::new(),
             display: HashMap::new(),
         }
@@ -21,11 +24,10 @@ impl DiskMonitor {
     /// At most three physical devices are returned.
     /// On the very first call the throughput values are 0 (no previous baseline).
     pub fn update(&mut self) -> Vec<(String, f64, f64)> {
-        let devices = physical_devices();
         let stats = read_diskstats();
 
         let mut out = Vec::new();
-        for dev in &devices {
+        for dev in &self.devices {
             if let Some(&(reads, writes)) = stats.get(dev) {
                 let (prev_r, prev_w) = self.prev.get(dev).copied().unwrap_or((reads, writes));
                 let read_bps = reads.saturating_sub(prev_r) as f64 * 512.0;
