@@ -6,11 +6,13 @@ use std::time::Duration;
 
 mod cpu;
 mod disk;
+mod gpu;
 mod memory;
 mod ui;
 
 use cpu::CpuMonitor;
 use disk::DiskMonitor;
+use gpu::GpuMonitor;
 use memory::MemoryMonitor;
 use ui::{Histories, create_ui, push_history};
 
@@ -32,6 +34,9 @@ fn main() {
             cpu: cpu_history,
             memory: mem_history,
             disks: disk_histories,
+            mem_total_gb,
+            gpu_util: gpu_util_history,
+            gpu_vram: gpu_vram_history,
         } = hist;
 
         // Wrap widgets in Rc<RefCell<>> so we can share them with the timeout closure.
@@ -49,6 +54,7 @@ fn main() {
         let mut cpu_monitor = CpuMonitor::new();
         let mut mem_monitor = MemoryMonitor::new();
         let mut disk_monitor = DiskMonitor::new();
+        let mut gpu_monitor = GpuMonitor::new();
 
         // Keep a weak reference to the window so the timeout can stop itself
         // cleanly once the window has been destroyed.
@@ -98,6 +104,7 @@ fn main() {
 
             // ── Memory ──────────────────────────────────────────────────────
             let to_gb = |b: u64| b as f64 / (1024.0 * 1024.0 * 1024.0);
+            mem_total_gb.set(to_gb(mem_stats.total));
             let to_mb = |b: u64| b as f64 / (1024.0 * 1024.0);
             w.mem_total
                 .set_text(&format!("Total: {:.2} GB", to_gb(mem_stats.total)));
@@ -138,6 +145,23 @@ fn main() {
             {
                 label.set_visible(false);
                 graph.set_visible(false);
+            }
+
+            // ── GPU ─────────────────────────────────────────────────────────
+            if let Some(ref mut mon) = gpu_monitor
+                && let Some(stats) = mon.update(new_elapsed)
+            {
+                w.gpu_panel.set_visible(true);
+                w.gpu_util_label
+                    .set_text(&format!("{:.1}%", stats.util_frac * 100.0));
+                w.gpu_vram_label.set_text(&format!(
+                    "VRAM: {:.2} GB",
+                    stats.vram_used_bytes / (1024.0 * 1024.0 * 1024.0)
+                ));
+                push_history(&gpu_util_history, stats.util_frac);
+                push_history(&gpu_vram_history, stats.vram_used_bytes);
+                w.gpu_util_graph.queue_draw();
+                w.gpu_vram_graph.queue_draw();
             }
 
             glib::ControlFlow::Continue
