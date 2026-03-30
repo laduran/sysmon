@@ -148,8 +148,8 @@ fn main() {
             }
 
             // ── GPU ─────────────────────────────────────────────────────────
-            if let Some(ref mut mon) = gpu_monitor {
-                if let Some(stats) = mon.update(new_elapsed) {
+            if let Some(ref mut mon) = gpu_monitor
+                && let Some(stats) = mon.update(new_elapsed) {
                     w.gpu_panel.set_visible(true);
                     w.gpu_util_label
                         .set_text(&format!("{:.1}%", stats.util_frac * 100.0));
@@ -161,7 +161,6 @@ fn main() {
                     push_history(&gpu_vram_history, stats.vram_used_bytes);
                     w.gpu_util_graph.queue_draw();
                     w.gpu_vram_graph.queue_draw();
-                }
             }
 
             glib::ControlFlow::Continue
