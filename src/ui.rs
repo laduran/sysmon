@@ -150,11 +150,11 @@ fn draw_y_labels(cr: &cairo::Context, h: f64, label_fn: &dyn Fn(f64) -> String) 
 
     // (fraction of Y range, baseline y in pixels)
     let levels: [(f64, f64); 5] = [
-        (1.00, 10.0),       // "100%" near top
-        (0.75, h * 0.25),   // "75%"  at the 75 % gridline
-        (0.50, h * 0.50),   // "50%"  at the midline
-        (0.25, h * 0.75),   // "25%"  at the 25 % gridline
-        (0.00, h - 2.0),    // "0%"   near bottom
+        (1.00, 10.0),     // "100%" near top
+        (0.75, h * 0.25), // "75%"  at the 75 % gridline
+        (0.50, h * 0.50), // "50%"  at the midline
+        (0.25, h * 0.75), // "25%"  at the 25 % gridline
+        (0.00, h - 2.0),  // "0%"   near bottom
     ];
     for (frac, y) in levels {
         let text = label_fn(frac);

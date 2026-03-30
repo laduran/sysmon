@@ -125,8 +125,7 @@ fn scan_vram_used(render_device: &str) -> f64 {
             }
 
             let fd_name = fd_entry.file_name();
-            let fdinfo_path =
-                format!("/proc/{}/fdinfo/{}", pid_str, fd_name.to_string_lossy());
+            let fdinfo_path = format!("/proc/{}/fdinfo/{}", pid_str, fd_name.to_string_lossy());
             let Ok(content) = fs::read_to_string(&fdinfo_path) else {
                 continue;
             };
