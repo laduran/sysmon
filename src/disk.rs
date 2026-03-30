@@ -23,15 +23,15 @@ impl DiskMonitor {
     /// Return a vector of `(display_name, read_bytes_per_sec, write_bytes_per_sec)`.
     /// At most three physical devices are returned.
     /// On the very first call the throughput values are 0 (no previous baseline).
-    pub fn update(&mut self) -> Vec<(String, f64, f64)> {
+    pub fn update(&mut self, interval_secs: f64) -> Vec<(String, f64, f64)> {
         let stats = read_diskstats();
 
         let mut out = Vec::new();
         for dev in &self.devices {
             if let Some(&(reads, writes)) = stats.get(dev) {
                 let (prev_r, prev_w) = self.prev.get(dev).copied().unwrap_or((reads, writes));
-                let read_bps = reads.saturating_sub(prev_r) as f64 * 512.0;
-                let write_bps = writes.saturating_sub(prev_w) as f64 * 512.0;
+                let read_bps = reads.saturating_sub(prev_r) as f64 * 512.0 / interval_secs;
+                let write_bps = writes.saturating_sub(prev_w) as f64 * 512.0 / interval_secs;
                 self.prev.insert(dev.clone(), (reads, writes));
 
                 // Build and cache the display name (device + model) on first sight.

@@ -1,5 +1,7 @@
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow};
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
 mod cpu;
@@ -52,15 +54,40 @@ fn main() {
         // cleanly once the window has been destroyed.
         let win_weak = win.downgrade();
 
-        // Use a GLib timeout to refresh every second (no extra threads needed).
-        glib::timeout_add_local(Duration::from_secs(1), move || {
+        // Tracks how many milliseconds have elapsed since the last data update.
+        // The base tick is 500 ms (the minimum selectable interval); for longer
+        // intervals the callback simply skips the update until enough ticks have
+        // accumulated.
+        let elapsed_ms: Rc<Cell<u64>> = Rc::new(Cell::new(0));
+
+        glib::timeout_add_local(Duration::from_millis(500), move || {
             // Stop the timer if the window no longer exists.
             if win_weak.upgrade().is_none() {
                 return glib::ControlFlow::Break;
             }
+
+            let w = widgets.borrow();
+
+            // Determine the selected polling interval from the dropdown.
+            let interval_ms: u64 = match w.poll_dropdown.selected() {
+                0 => 500,
+                2 => 2000,
+                _ => 1000, // default: 1 s
+            };
+
+            // Accumulate elapsed time and skip this tick if the interval hasn't
+            // been reached yet.
+            let new_elapsed = elapsed_ms.get() + 500;
+            if new_elapsed < interval_ms {
+                elapsed_ms.set(new_elapsed);
+                return glib::ControlFlow::Continue;
+            }
+            elapsed_ms.set(0);
+
+            drop(w);
             let cpu_frac = cpu_monitor.update();
             let mem_stats = mem_monitor.update();
-            let disk_stats = disk_monitor.update();
+            let disk_stats = disk_monitor.update(new_elapsed as f64 / 1000.0);
 
             let w = widgets.borrow();
 

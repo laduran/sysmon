@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use gtk4::{Box, DrawingArea, Label, Orientation};
+use gtk4::{Box, DrawingArea, DropDown, Label, Orientation, StringList};
 
 /// How many seconds of history to keep for each graph.
 /// Also used by the update loop in main.rs to size the ring buffers.
@@ -88,6 +88,9 @@ pub fn push_history<T>(history: &Rc<RefCell<VecDeque<T>>>, value: T) {
 
 /// Handles to every widget the update loop needs to touch.
 pub struct Widgets {
+    // Toolbar
+    pub poll_dropdown: DropDown,
+
     // CPU
     pub cpu_percent: Label,
     pub cpu_graph: DrawingArea,
@@ -268,6 +271,18 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
         .margin_end(12)
         .build();
 
+    // ── Toolbar ──────────────────────────────────────────────────────────────
+    let poll_dropdown = DropDown::builder()
+        .model(&StringList::new(&["0.5 s", "1 s", "2 s"]))
+        .selected(1) // default: 1 s
+        .build();
+    let toolbar = Box::builder()
+        .orientation(Orientation::Horizontal)
+        .spacing(6)
+        .build();
+    toolbar.append(&Label::new(Some("Poll interval:")));
+    toolbar.append(&poll_dropdown);
+
     // ── CPU panel ────────────────────────────────────────────────────────────
     let cpu_history = new_history();
     let cpu_graph = make_graph(Rc::clone(&cpu_history), CPU_FILL, CPU_LINE);
@@ -320,11 +335,13 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     disk_box.append(&disk_graphs[2]);
 
     // ── Assemble ──────────────────────────────────────────────────────────────
+    main_box.append(&toolbar);
     main_box.append(&cpu_box);
     main_box.append(&mem_box);
     main_box.append(&disk_box);
 
     let widgets = Widgets {
+        poll_dropdown,
         cpu_percent,
         cpu_graph,
         mem_total,
