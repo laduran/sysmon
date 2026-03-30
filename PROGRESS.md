@@ -6,6 +6,63 @@ and what to work on next. A new Claude session should read this file (plus
 
 ---
 
+## Session — 2026-03-29 (continued, part 3)
+
+### Completed
+
+- **Moved polling interval toolbar back to top of window.** The bottom placement
+  was a workaround for a GTK4 DropDown popup z-order bug (popup clipped by sibling
+  widgets when near the top). The fix didn't fully resolve the issue, so reverted to
+  the more natural top-left placement and accepted the minor cosmetic quirk.
+
+### Decisions
+
+- Bottom toolbar placement was not worth keeping given the bug persisted; top placement
+  is more conventional for controls.
+
+### Next Session Should
+
+- Open a PR for `feature/polling-interval` and merge once CI passes.
+- Begin scoping the network throughput panel (see PRD backlog).
+
+---
+
+## Session — 2026-03-29 (continued, part 2)
+
+### Completed
+
+- **Added polling interval dropdown (feature branch `feature/polling-interval`).** Toolbar
+  with a `DropDown` (0.5 s / 1 s / 2 s, default 1 s) added to the UI. Update loop uses
+  a fixed 500 ms GLib tick with elapsed-ms accumulation — avoids cancelling/rescheduling
+  GLib sources and keeps jitter to ≤500 ms.
+
+- **Fixed DropDown popup z-order bug.** When the toolbar was at the top of the window,
+  GTK4's DropDown popup (a Popover) tried to center the selected item at the button
+  position, pushing the popup's top edge above the toolbar row. Sibling widgets rendered
+  over it, blocking the upper-left of the popup list. Fix: moved the toolbar to the
+  bottom of the window so the popup opens upward into clear space.
+
+- **Set up GitHub Actions CI.** `.github/workflows/ci.yml` runs `cargo build`,
+  `cargo clippy -- -D warnings`, `cargo fmt --check`, and `cargo test` on every push
+  to `main` and every PR. Ubuntu runner installs `libgtk-4-dev` before building.
+  Updated `PRD.md` to document the CI/CD setup and quality bar.
+
+### Decisions
+
+- Toolbar moved to bottom rather than patching popup direction — GTK4 has no public API
+  to force a DropDown popup to open downward, and the bottom position is a natural fit
+  (controls below content) without requiring hacks.
+- Fixed 500 ms base tick preferred over dynamic GLib source rescheduling — simpler,
+  no source ID bookkeeping, acceptable jitter for a system monitor.
+
+### Next Session Should
+
+- Open a PR for `feature/polling-interval` (or confirm it is already open) and merge
+  once CI passes.
+- Begin scoping the network throughput panel (see PRD backlog).
+
+---
+
 ## Session — 2026-03-29 (continued)
 
 ### Completed
