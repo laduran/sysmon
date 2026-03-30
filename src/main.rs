@@ -87,7 +87,7 @@ fn main() {
             drop(w);
             let cpu_frac = cpu_monitor.update();
             let mem_stats = mem_monitor.update();
-            let disk_stats = disk_monitor.update();
+            let disk_stats = disk_monitor.update(interval_ms as f64 / 1000.0);
 
             let w = widgets.borrow();
 
