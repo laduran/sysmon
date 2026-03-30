@@ -30,11 +30,25 @@ used to explore effective human–AI collaboration workflows.
 Every session must leave the codebase in a state where:
 
 1. `cargo build` completes without errors
-2. `cargo clippy` produces no warnings
-3. The application window close button terminates the process cleanly
-4. No magic number colour values in draw code — use named `Color` constants
-5. No duplicated Cairo draw blocks — shared logic must be factored out
-6. Commit messages describe *why*, not just *what*
+2. `cargo clippy --deny warnings` produces no warnings
+3. `cargo fmt --check` passes (code is consistently formatted)
+4. The application window close button terminates the process cleanly
+5. No magic number colour values in draw code — use named `Color` constants
+6. No duplicated Cairo draw blocks — shared logic must be factored out
+7. Commit messages describe *why*, not just *what*
+
+## CI/CD
+
+GitHub Actions runs on every push to `main` and every pull request:
+
+- **Build** — `cargo build`
+- **Lint** — `cargo clippy --deny warnings`
+- **Format** — `cargo fmt --check`
+- **Tests** — `cargo test`
+
+The Ubuntu runner installs `libgtk-4-dev` before building. PRs should not
+be merged if CI is failing or if the branch is behind `main` — enforce this
+via GitHub branch protection rules on the `main` branch.
 
 ## Planned Features (Backlog)
 

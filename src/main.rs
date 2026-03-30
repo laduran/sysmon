@@ -10,7 +10,7 @@ mod ui;
 use cpu::CpuMonitor;
 use disk::DiskMonitor;
 use memory::MemoryMonitor;
-use ui::{create_ui, push_history, Histories};
+use ui::{Histories, create_ui, push_history};
 
 fn main() {
     let app = Application::builder()
@@ -26,7 +26,11 @@ fn main() {
             .build();
 
         let (main_box, widgets, hist) = create_ui();
-        let Histories { cpu: cpu_history, memory: mem_history, disks: disk_histories } = hist;
+        let Histories {
+            cpu: cpu_history,
+            memory: mem_history,
+            disks: disk_histories,
+        } = hist;
 
         // Wrap widgets in Rc<RefCell<>> so we can share them with the timeout closure.
         let widgets = std::rc::Rc::new(std::cell::RefCell::new(widgets));
@@ -100,9 +104,13 @@ fn main() {
                 w.disk_graphs[i].queue_draw();
             }
             // Hide slots for which no physical device was found.
-            for i in disk_stats.len()..3 {
-                disk_labels[i].set_visible(false);
-                w.disk_graphs[i].set_visible(false);
+            for (label, graph) in disk_labels
+                .iter()
+                .zip(w.disk_graphs.iter())
+                .skip(disk_stats.len())
+            {
+                label.set_visible(false);
+                graph.set_visible(false);
             }
 
             glib::ControlFlow::Continue

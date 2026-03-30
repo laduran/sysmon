@@ -41,14 +41,14 @@ const FILL_ALPHA: f64 = 0.35;
 const GRID_ALPHA: f64 = 0.08;
 
 // Per-panel colour pairs (fill = lighter, line = darker stroke).
-const CPU_FILL:        Color = Color::from_u8(100, 180, 255); // blue
-const CPU_LINE:        Color = Color::from_u8( 30, 100, 200);
-const MEM_FILL:        Color = Color::from_u8(100, 220, 130); // green
-const MEM_LINE:        Color = Color::from_u8( 30, 160,  60);
-const DISK_READ_FILL:  Color = Color::from_u8(  0, 200, 180); // teal
-const DISK_READ_LINE:  Color = Color::from_u8(  0, 140, 120);
-const DISK_WRITE_FILL: Color = Color::from_u8(255, 140,  30); // amber
-const DISK_WRITE_LINE: Color = Color::from_u8(200,  80,   0);
+const CPU_FILL: Color = Color::from_u8(100, 180, 255); // blue
+const CPU_LINE: Color = Color::from_u8(30, 100, 200);
+const MEM_FILL: Color = Color::from_u8(100, 220, 130); // green
+const MEM_LINE: Color = Color::from_u8(30, 160, 60);
+const DISK_READ_FILL: Color = Color::from_u8(0, 200, 180); // teal
+const DISK_READ_LINE: Color = Color::from_u8(0, 140, 120);
+const DISK_WRITE_FILL: Color = Color::from_u8(255, 140, 30); // amber
+const DISK_WRITE_LINE: Color = Color::from_u8(200, 80, 0);
 
 // ── History buffer types ──────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ pub type ThroughputHistory = Rc<RefCell<VecDeque<(f64, f64)>>>;
 /// Named histories returned by `create_ui`, one field per data source.
 /// Keeps `create_ui`'s return type readable and future-proof.
 pub struct Histories {
-    pub cpu:   History,
+    pub cpu: History,
     pub memory: History,
     pub disks: Vec<ThroughputHistory>,
 }
@@ -220,8 +220,9 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
         };
 
         // Each trace: (sample extractor, fill colour, stroke colour).
-        let traces: [(fn(&(f64, f64)) -> f64, Color, Color); 2] = [
-            (|s: &(f64, f64)| s.0, DISK_READ_FILL,  DISK_READ_LINE),  // teal  – read
+        type TraceDef = (fn(&(f64, f64)) -> f64, Color, Color);
+        let traces: [TraceDef; 2] = [
+            (|s: &(f64, f64)| s.0, DISK_READ_FILL, DISK_READ_LINE), // teal  – read
             (|s: &(f64, f64)| s.1, DISK_WRITE_FILL, DISK_WRITE_LINE), // amber – write
         ];
 
@@ -271,7 +272,10 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     let cpu_history = new_history();
     let cpu_graph = make_graph(Rc::clone(&cpu_history), CPU_FILL, CPU_LINE);
     let cpu_percent = Label::new(Some("0.0%"));
-    let cpu_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
+    let cpu_box = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(4)
+        .build();
     cpu_box.append(&Label::new(Some("CPU Usage")));
     cpu_box.append(&cpu_percent);
     cpu_box.append(&cpu_graph);
@@ -280,10 +284,13 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     let mem_history = new_history();
     let mem_graph = make_graph(Rc::clone(&mem_history), MEM_FILL, MEM_LINE);
     let mem_total = Label::new(Some("Total: —"));
-    let mem_used  = Label::new(Some("Used:  —"));
-    let mem_free  = Label::new(Some("Avail: —"));
-    let mem_swap  = Label::new(Some("Swap:  —"));
-    let mem_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
+    let mem_used = Label::new(Some("Used:  —"));
+    let mem_free = Label::new(Some("Avail: —"));
+    let mem_swap = Label::new(Some("Swap:  —"));
+    let mem_box = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(4)
+        .build();
     mem_box.append(&Label::new(Some("Memory")));
     mem_box.append(&mem_total);
     mem_box.append(&mem_used);
@@ -300,7 +307,10 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     let disk1 = Label::new(Some("Disk 1: —"));
     let disk2 = Label::new(Some("Disk 2: —"));
     let disk3 = Label::new(Some("Disk 3: —"));
-    let disk_box = Box::builder().orientation(Orientation::Vertical).spacing(4).build();
+    let disk_box = Box::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(4)
+        .build();
     disk_box.append(&Label::new(Some("Disks  (teal = read, amber = write)")));
     disk_box.append(&disk1);
     disk_box.append(&disk_graphs[0]);
