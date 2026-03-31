@@ -63,13 +63,15 @@ impl GpuMonitor {
         if nvidia_smi_available() {
             let cache: Arc<Mutex<Option<(f64, f64)>>> = Arc::new(Mutex::new(None));
             let cache_bg = Arc::clone(&cache);
-            thread::spawn(move || loop {
-                if let Some(stats) = query_nvidia_smi()
-                    && let Ok(mut g) = cache_bg.lock()
-                {
-                    *g = Some((stats.util_frac, stats.vram_used_bytes));
+            thread::spawn(move || {
+                loop {
+                    if let Some(stats) = query_nvidia_smi()
+                        && let Ok(mut g) = cache_bg.lock()
+                    {
+                        *g = Some((stats.util_frac, stats.vram_used_bytes));
+                    }
+                    thread::sleep(Duration::from_millis(1000));
                 }
-                thread::sleep(Duration::from_millis(1000));
             });
             return Some(GpuMonitor {
                 backend: Backend::Nvidia { cache },
@@ -112,7 +114,10 @@ impl GpuMonitor {
             Backend::Nvidia { cache } => {
                 let guard = cache.lock().ok()?;
                 let (util_frac, vram_used_bytes) = (*guard)?;
-                Some(GpuStats { util_frac, vram_used_bytes })
+                Some(GpuStats {
+                    util_frac,
+                    vram_used_bytes,
+                })
             }
         }
     }
