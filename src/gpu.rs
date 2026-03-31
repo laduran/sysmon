@@ -64,10 +64,10 @@ impl GpuMonitor {
             let cache: Arc<Mutex<Option<(f64, f64)>>> = Arc::new(Mutex::new(None));
             let cache_bg = Arc::clone(&cache);
             thread::spawn(move || loop {
-                if let Some(stats) = query_nvidia_smi() {
-                    if let Ok(mut g) = cache_bg.lock() {
-                        *g = Some((stats.util_frac, stats.vram_used_bytes));
-                    }
+                if let Some(stats) = query_nvidia_smi()
+                    && let Ok(mut g) = cache_bg.lock()
+                {
+                    *g = Some((stats.util_frac, stats.vram_used_bytes));
                 }
                 thread::sleep(Duration::from_millis(1000));
             });
