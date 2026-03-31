@@ -41,6 +41,9 @@ const FILL_ALPHA: f64 = 0.35;
 /// Faint white guide lines drawn at 25 / 50 / 75 %.
 const GRID_ALPHA: f64 = 0.08;
 
+/// Horizontal pixel offset reserved for Y-axis labels on the left.
+const LABEL_PAD: f64 = 38.0;
+
 // Per-panel colour pairs (fill = lighter, line = darker stroke).
 const CPU_FILL: Color = Color::from_u8(100, 180, 255); // blue
 const CPU_LINE: Color = Color::from_u8(30, 100, 200);
@@ -212,7 +215,7 @@ fn make_graph(
         cr.set_line_width(1.0);
         for pct in &[0.25_f64, 0.50, 0.75] {
             let y = h - pct * h;
-            cr.move_to(0.0, y);
+            cr.move_to(LABEL_PAD, y);
             cr.line_to(w, y);
             let _ = cr.stroke();
         }
@@ -225,8 +228,9 @@ fn make_graph(
             return;
         }
 
-        let step = w / (HISTORY_LEN as f64 - 1.0);
-        let x_offset = (HISTORY_LEN - n) as f64 * step;
+        let graph_w = w - LABEL_PAD;
+        let step = graph_w / (HISTORY_LEN as f64 - 1.0);
+        let x_offset = LABEL_PAD + (HISTORY_LEN - n) as f64 * step;
 
         let point = |i: usize| -> (f64, f64) {
             let x = x_offset + i as f64 * step;
@@ -283,7 +287,7 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
         cr.set_line_width(1.0);
         for pct in &[0.25_f64, 0.50, 0.75] {
             let y = h - pct * h;
-            cr.move_to(0.0, y);
+            cr.move_to(LABEL_PAD, y);
             cr.line_to(w, y);
             let _ = cr.stroke();
         }
@@ -301,8 +305,9 @@ fn make_throughput_graph(history: ThroughputHistory) -> DrawingArea {
 
         draw_raw_labels(cr, h, max_val, &fmt_throughput);
 
-        let step = w / (HISTORY_LEN as f64 - 1.0);
-        let x_offset = (HISTORY_LEN - n) as f64 * step;
+        let graph_w = w - LABEL_PAD;
+        let step = graph_w / (HISTORY_LEN as f64 - 1.0);
+        let x_offset = LABEL_PAD + (HISTORY_LEN - n) as f64 * step;
 
         let xy = |i: usize, val: f64| -> (f64, f64) {
             let frac = (val / max_val).clamp(0.0, 1.0);
@@ -372,7 +377,7 @@ fn make_autoscale_graph(
         cr.set_line_width(1.0);
         for pct in &[0.25_f64, 0.50, 0.75] {
             let y = h - pct * h;
-            cr.move_to(0.0, y);
+            cr.move_to(LABEL_PAD, y);
             cr.line_to(w, y);
             let _ = cr.stroke();
         }
@@ -385,8 +390,9 @@ fn make_autoscale_graph(
 
         draw_raw_labels(cr, h, max_val, label_fn.as_ref());
 
-        let step = w / (HISTORY_LEN as f64 - 1.0);
-        let x_offset = (HISTORY_LEN - n) as f64 * step;
+        let graph_w = w - LABEL_PAD;
+        let step = graph_w / (HISTORY_LEN as f64 - 1.0);
+        let x_offset = LABEL_PAD + (HISTORY_LEN - n) as f64 * step;
 
         let point = |i: usize| -> (f64, f64) {
             let x = x_offset + i as f64 * step;

@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 /// Snapshot of GPU metrics for one poll cycle.
 pub struct GpuStats {
@@ -10,21 +14,30 @@ pub struct GpuStats {
     pub vram_used_bytes: f64,
 }
 
+enum Backend {
+    /// Intel Arc / xe driver — uses sysfs idle-residency counters.
+    IntelXe {
+        idle_path: PathBuf,
+        render_device: String,
+        last_idle_ms: u64,
+        first: bool,
+    },
+    /// NVIDIA — a background thread polls `nvidia-smi`; main thread reads cache.
+    Nvidia {
+        /// Latest (util_frac, vram_used_bytes) from the background thread.
+        cache: Arc<Mutex<Option<(f64, f64)>>>,
+    },
+}
+
 pub struct GpuMonitor {
-    /// Cumulative idle-residency counter (xe driver, GT0).
-    idle_path: PathBuf,
-    /// DRM render node (e.g. "renderD128") used to match fdinfo entries.
-    render_device: String,
-    /// Last sampled idle_residency_ms value.
-    last_idle_ms: u64,
-    /// Skip utilisation calculation on the very first sample.
-    first: bool,
+    backend: Backend,
 }
 
 impl GpuMonitor {
-    /// Detect an Intel Arc / xe-driver GPU and return a monitor, or `None` if
-    /// no supported GPU is found.
+    /// Detect a supported GPU and return a monitor, or `None` if none found.
+    /// Tries Intel Arc (xe driver) first, then NVIDIA via `nvidia-smi`.
     pub fn new() -> Option<Self> {
+        // ── Intel Arc / xe driver ────────────────────────────────────────────
         for card_index in 0..8u32 {
             let idle_path = PathBuf::from(format!(
                 "/sys/class/drm/card{}/device/tile0/gt0/gtidle/idle_residency_ms",
@@ -37,40 +50,122 @@ impl GpuMonitor {
                 find_render_device(card_index).unwrap_or_else(|| "renderD128".to_string());
             let last_idle_ms = read_u64(&idle_path).unwrap_or(0);
             return Some(GpuMonitor {
-                idle_path,
-                render_device,
-                last_idle_ms,
-                first: true,
+                backend: Backend::IntelXe {
+                    idle_path,
+                    render_device,
+                    last_idle_ms,
+                    first: true,
+                },
             });
         }
+
+        // ── NVIDIA ───────────────────────────────────────────────────────────
+        if nvidia_smi_available() {
+            let cache: Arc<Mutex<Option<(f64, f64)>>> = Arc::new(Mutex::new(None));
+            let cache_bg = Arc::clone(&cache);
+            thread::spawn(move || {
+                loop {
+                    if let Some(stats) = query_nvidia_smi()
+                        && let Ok(mut g) = cache_bg.lock()
+                    {
+                        *g = Some((stats.util_frac, stats.vram_used_bytes));
+                    }
+                    thread::sleep(Duration::from_millis(1000));
+                }
+            });
+            return Some(GpuMonitor {
+                backend: Backend::Nvidia { cache },
+            });
+        }
+
         None
     }
 
     /// Sample GPU utilisation and VRAM usage.
-    /// `elapsed_ms` is the wall-clock time in milliseconds since the last call.
-    /// Returns `None` if the underlying sysfs counters become unreadable.
+    /// `elapsed_ms` is the wall-clock time since the last call (used by Intel backend).
+    /// Returns `None` if the underlying counters become unreadable.
     pub fn update(&mut self, elapsed_ms: u64) -> Option<GpuStats> {
-        let current_idle_ms = read_u64(&self.idle_path)?;
+        match &mut self.backend {
+            Backend::IntelXe {
+                idle_path,
+                render_device,
+                last_idle_ms,
+                first,
+            } => {
+                let current_idle_ms = read_u64(idle_path)?;
 
-        let util_frac = if self.first || elapsed_ms == 0 {
-            self.first = false;
-            0.0
-        } else {
-            let idle_delta = current_idle_ms.saturating_sub(self.last_idle_ms);
-            (1.0 - idle_delta as f64 / elapsed_ms as f64).clamp(0.0, 1.0)
-        };
-        self.last_idle_ms = current_idle_ms;
+                let util_frac = if *first || elapsed_ms == 0 {
+                    *first = false;
+                    0.0
+                } else {
+                    let idle_delta = current_idle_ms.saturating_sub(*last_idle_ms);
+                    (1.0 - idle_delta as f64 / elapsed_ms as f64).clamp(0.0, 1.0)
+                };
+                *last_idle_ms = current_idle_ms;
 
-        let vram_used_bytes = scan_vram_used(&self.render_device);
+                let vram_used_bytes = scan_vram_used(render_device);
 
-        Some(GpuStats {
-            util_frac,
-            vram_used_bytes,
-        })
+                Some(GpuStats {
+                    util_frac,
+                    vram_used_bytes,
+                })
+            }
+
+            Backend::Nvidia { cache } => {
+                let guard = cache.lock().ok()?;
+                let (util_frac, vram_used_bytes) = (*guard)?;
+                Some(GpuStats {
+                    util_frac,
+                    vram_used_bytes,
+                })
+            }
+        }
     }
 }
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
+// ── NVIDIA helpers ────────────────────────────────────────────────────────────
+
+/// Return true if `nvidia-smi` is present and responds successfully.
+fn nvidia_smi_available() -> bool {
+    Command::new("nvidia-smi")
+        .args(["--query-gpu=name", "--format=csv,noheader"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Query `nvidia-smi` for utilisation and VRAM of GPU index 0.
+///
+/// Runs: `nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits`
+/// Output example: `45, 4096`
+/// Units: utilization in %, memory in MiB.
+fn query_nvidia_smi() -> Option<GpuStats> {
+    let output = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=utilization.gpu,memory.used",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let line = stdout.lines().next()?;
+    let mut parts = line.splitn(2, ',');
+
+    let util_pct: f64 = parts.next()?.trim().parse().ok()?;
+    let vram_mib: f64 = parts.next()?.trim().parse().ok()?;
+
+    Some(GpuStats {
+        util_frac: (util_pct / 100.0).clamp(0.0, 1.0),
+        vram_used_bytes: vram_mib * 1024.0 * 1024.0,
+    })
+}
+
+// ── Intel / xe helpers ────────────────────────────────────────────────────────
 
 fn read_u64(path: &Path) -> Option<u64> {
     fs::read_to_string(path).ok()?.trim().parse().ok()
@@ -91,10 +186,6 @@ fn find_render_device(card_index: u32) -> Option<String> {
 
 /// Sum VRAM allocated by all unique DRM clients that have `render_device` open,
 /// by scanning every process's fdinfo entries.
-///
-/// The xe driver reports per-client VRAM under `drm-total-vram0`.  Each DRM
-/// client can hold multiple file descriptors that all show the same allocation,
-/// so we deduplicate by `drm-client-id` (first occurrence wins).
 fn scan_vram_used(render_device: &str) -> f64 {
     let target = format!("/dev/dri/{}", render_device);
     let mut seen: HashMap<u64, u64> = HashMap::new(); // client-id → bytes
@@ -116,7 +207,6 @@ fn scan_vram_used(render_device: &str) -> f64 {
         };
 
         for fd_entry in fds.flatten() {
-            // Only bother reading fdinfo if the fd actually points at our GPU.
             let Ok(link) = fs::read_link(fd_entry.path()) else {
                 continue;
             };
