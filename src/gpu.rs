@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 /// Snapshot of GPU metrics for one poll cycle.
 pub struct GpuStats {
@@ -19,8 +22,11 @@ enum Backend {
         last_idle_ms: u64,
         first: bool,
     },
-    /// NVIDIA — polls `nvidia-smi` each tick.
-    Nvidia,
+    /// NVIDIA — a background thread polls `nvidia-smi`; main thread reads cache.
+    Nvidia {
+        /// Latest (util_frac, vram_used_bytes) from the background thread.
+        cache: Arc<Mutex<Option<(f64, f64)>>>,
+    },
 }
 
 pub struct GpuMonitor {
@@ -55,8 +61,18 @@ impl GpuMonitor {
 
         // ── NVIDIA ───────────────────────────────────────────────────────────
         if nvidia_smi_available() {
+            let cache: Arc<Mutex<Option<(f64, f64)>>> = Arc::new(Mutex::new(None));
+            let cache_bg = Arc::clone(&cache);
+            thread::spawn(move || loop {
+                if let Some(stats) = query_nvidia_smi() {
+                    if let Ok(mut g) = cache_bg.lock() {
+                        *g = Some((stats.util_frac, stats.vram_used_bytes));
+                    }
+                }
+                thread::sleep(Duration::from_millis(1000));
+            });
             return Some(GpuMonitor {
-                backend: Backend::Nvidia,
+                backend: Backend::Nvidia { cache },
             });
         }
 
@@ -93,7 +109,11 @@ impl GpuMonitor {
                 })
             }
 
-            Backend::Nvidia => query_nvidia_smi(),
+            Backend::Nvidia { cache } => {
+                let guard = cache.lock().ok()?;
+                let (util_frac, vram_used_bytes) = (*guard)?;
+                Some(GpuStats { util_frac, vram_used_bytes })
+            }
         }
     }
 }
