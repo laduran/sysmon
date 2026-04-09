@@ -167,7 +167,17 @@ fn main() {
             glib::ControlFlow::Continue
         });
 
-        win.set_child(Some(&main_box));
+        // Wrap content in a ScrolledWindow so the window can always be
+        // resized narrower than the content's natural width.  Without this,
+        // GTK4/Wayland locks the resize floor to the high-water-mark natural
+        // width, preventing the FlowBox from wrapping.
+        let scrolled = gtk4::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk4::PolicyType::Never)
+            .vscrollbar_policy(gtk4::PolicyType::Automatic)
+            .propagate_natural_width(false)
+            .child(&main_box)
+            .build();
+        win.set_child(Some(&scrolled));
         win.present();
     });
 

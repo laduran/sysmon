@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use gtk4::cairo;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, DrawingArea, DropDown, Label, Orientation, StringList};
+use gtk4::{Box as GtkBox, DrawingArea, DropDown, FlowBox, Label, Orientation, SelectionMode, StringList};
 
 /// How many seconds of history to keep for each graph.
 /// Also used by the update loop in main.rs to size the ring buffers.
@@ -491,15 +491,25 @@ pub fn create_ui() -> (gtk4::Box, Widgets, Histories) {
     let mem_used = Label::new(Some("Used:  —"));
     let mem_free = Label::new(Some("Avail: —"));
     let mem_swap = Label::new(Some("Swap:  —"));
+    for lbl in [&mem_total, &mem_used, &mem_free, &mem_swap] {
+        lbl.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+    }
+    let mem_stats_flow = FlowBox::builder()
+        .selection_mode(SelectionMode::None)
+        .min_children_per_line(1)
+        .max_children_per_line(4)
+        .hexpand(true)
+        .build();
+    mem_stats_flow.insert(&mem_total, -1);
+    mem_stats_flow.insert(&mem_used, -1);
+    mem_stats_flow.insert(&mem_free, -1);
+    mem_stats_flow.insert(&mem_swap, -1);
     let mem_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(4)
         .build();
     mem_box.append(&Label::new(Some("Memory")));
-    mem_box.append(&mem_total);
-    mem_box.append(&mem_used);
-    mem_box.append(&mem_free);
-    mem_box.append(&mem_swap);
+    mem_box.append(&mem_stats_flow);
     mem_box.append(&mem_graph);
 
     // ── Disk panel ───────────────────────────────────────────────────────────
