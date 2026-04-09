@@ -4,7 +4,9 @@ use std::rc::Rc;
 
 use gtk4::cairo;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, DrawingArea, DropDown, FlowBox, Label, Orientation, SelectionMode, StringList};
+use gtk4::{
+    Box as GtkBox, DrawingArea, DropDown, FlowBox, Label, Orientation, SelectionMode, StringList,
+};
 
 /// How many seconds of history to keep for each graph.
 /// Also used by the update loop in main.rs to size the ring buffers.
