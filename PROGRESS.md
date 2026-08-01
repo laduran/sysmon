@@ -6,6 +6,43 @@ and what to work on next. A new Claude session should read this file (plus
 
 ---
 
+## Session — 2026-07-31
+
+### Completed
+
+- **Added a real application icon (branch `feature/app-icon`).** The app previously
+  used GTK's generic default icon everywhere. Added a user-supplied SVG
+  (`data/icons/hicolor/scalable/apps/io.github.laduran.sysmon.svg`), a
+  `.desktop` entry (`data/io.github.laduran.sysmon.desktop`), and `install.sh`
+  for a per-user (no-root) XDG install so the icon shows up in the app
+  launcher and file manager, not just the window itself.
+- **Renamed the app ID** from the placeholder `com.example.systemmonitor` to
+  `io.github.laduran.sysmon` — the `.desktop` file basename, GApplication
+  application-id, and installed icon name must all match for desktop
+  environments to associate a running window with its launcher icon.
+- **Wired up the window icon** via `ApplicationWindow::builder().icon_name(APP_ID)`.
+  In debug builds only, the repo's `data/icons/hicolor` dir is added to the
+  `IconTheme` search path (gated on `cfg(debug_assertions)`) so `cargo run`
+  shows the real icon without requiring `install.sh` first; release builds
+  rely on the icon being installed into a themed icon directory.
+
+### Decisions
+
+- Used the icon as a scalable SVG in the standard `hicolor` icon theme
+  layout rather than rasterizing to PNGs — GTK4/Cairo render SVG icons
+  natively and every mainstream Linux desktop resolves `hicolor/scalable/apps`.
+- No install step was folded into `cargo build` — desktop-file/icon
+  installation is a user-directory concern separate from compiling the
+  binary, so it's a standalone opt-in script instead.
+
+### Next Session Should
+
+- Open a PR for `feature/app-icon` and merge once CI passes.
+- Continue with the PRD backlog: network throughput panel or per-core CPU
+  breakdown.
+
+---
+
 ## Session — 2026-03-29 (continued, part 3)
 
 ### Completed

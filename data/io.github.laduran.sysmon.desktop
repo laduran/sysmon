@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+GenericName=System Monitor
+Comment=Lightweight CPU, memory, disk, and GPU monitor
+Exec=system-monitor
+Icon=io.github.laduran.sysmon
+Terminal=false
+Categories=System;Monitor;
+Keywords=cpu;memory;disk;gpu;performance;

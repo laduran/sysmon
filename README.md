@@ -24,7 +24,13 @@ The result is a functional, reasonably well-structured Rust application. The exp
 
 Inspired by [Mission Center](https://missioncenter.io/).
 
-## Building
+## Installing a release
+
+Prebuilt Linux x86_64 tarballs (binary + `.desktop` entry + icon +
+`install.sh`) are published on the [Releases page](https://github.com/laduran/sysmon/releases).
+Download and extract one, then run `./install.sh` inside it.
+
+## Building from source
 
 ```sh
 cargo build --release
@@ -32,6 +38,19 @@ cargo build --release
 ```
 
 Requires GTK4 development libraries (`gtk4` / `libgtk-4-dev`).
+
+### Desktop integration
+
+`cargo run` / `./target/release/system-monitor` shows the app icon in its own
+window automatically. To also get the icon in your application launcher and
+file manager, install it for your user account (no root required):
+
+```sh
+./install.sh
+```
+
+This builds the release binary and copies it, a `.desktop` entry, and the
+icon into `~/.local/{bin,share/applications,share/icons}`.
 
 ## Planned
 

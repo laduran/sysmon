@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Installs system-monitor for the current user (no root required):
+# builds the release binary and places it, the .desktop entry, and the
+# app icon under the standard per-user XDG directories so it shows up
+# with its own icon in application launchers and file managers.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+APP_ID="io.github.laduran.sysmon"
+BIN_DIR="$HOME/.local/bin"
+APPS_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+
+# Running from the source tree (has Cargo.toml) builds the binary; running
+# from an extracted release tarball (see .github/workflows/release.yml) uses
+# the prebuilt binary already sitting next to this script.
+if [[ -f Cargo.toml ]]; then
+    echo "Building release binary..."
+    cargo build --release
+    BIN_SRC="target/release/system-monitor"
+elif [[ -f system-monitor ]]; then
+    BIN_SRC="system-monitor"
+else
+    echo "Error: couldn't find Cargo.toml (source tree) or a system-monitor" \
+         "binary (release tarball) next to this script." >&2
+    exit 1
+fi
+
+install -Dm755 "$BIN_SRC" "$BIN_DIR/system-monitor"
+install -Dm644 "data/icons/hicolor/scalable/apps/${APP_ID}.svg" "$ICON_DIR/${APP_ID}.svg"
+
+# Substitute the absolute installed binary path into Exec= so the launcher
+# entry works even if ~/.local/bin isn't on the desktop session's PATH.
+# The repo copy stays generic (Exec=system-monitor) for readability.
+mkdir -p "$APPS_DIR"
+sed "s|^Exec=system-monitor\$|Exec=$BIN_DIR/system-monitor|" \
+    "data/${APP_ID}.desktop" > "$APPS_DIR/${APP_ID}.desktop"
+chmod 644 "$APPS_DIR/${APP_ID}.desktop"
+
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo "Note: $BIN_DIR is not on your PATH. Add it in your shell profile to" \
+         "run 'system-monitor' from a terminal too, e.g." \
+         "export PATH=\"\$HOME/.local/bin:\$PATH\""
+fi
+
+command -v update-desktop-database >/dev/null && update-desktop-database "$APPS_DIR" || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" || true
+
+echo "Installed. Launch from your application menu, or run: system-monitor"
