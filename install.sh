@@ -12,10 +12,22 @@ BIN_DIR="$HOME/.local/bin"
 APPS_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
 
-echo "Building release binary..."
-cargo build --release
+# Running from the source tree (has Cargo.toml) builds the binary; running
+# from an extracted release tarball (see .github/workflows/release.yml) uses
+# the prebuilt binary already sitting next to this script.
+if [[ -f Cargo.toml ]]; then
+    echo "Building release binary..."
+    cargo build --release
+    BIN_SRC="target/release/system-monitor"
+elif [[ -f system-monitor ]]; then
+    BIN_SRC="system-monitor"
+else
+    echo "Error: couldn't find Cargo.toml (source tree) or a system-monitor" \
+         "binary (release tarball) next to this script." >&2
+    exit 1
+fi
 
-install -Dm755 target/release/system-monitor "$BIN_DIR/system-monitor"
+install -Dm755 "$BIN_SRC" "$BIN_DIR/system-monitor"
 install -Dm644 "data/icons/hicolor/scalable/apps/${APP_ID}.svg" "$ICON_DIR/${APP_ID}.svg"
 
 # Substitute the absolute installed binary path into Exec= so the launcher
