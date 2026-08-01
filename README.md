@@ -24,7 +24,13 @@ The result is a functional, reasonably well-structured Rust application. The exp
 
 Inspired by [Mission Center](https://missioncenter.io/).
 
-## Building
+## Installing a release
+
+Prebuilt Linux x86_64 tarballs (binary + `.desktop` entry + icon +
+`install.sh`) are published on the [Releases page](https://github.com/laduran/sysmon/releases).
+Download and extract one, then run `./install.sh` inside it.
+
+## Building from source
 
 ```sh
 cargo build --release

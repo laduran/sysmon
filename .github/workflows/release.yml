@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GTK4 dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libgtk-4-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG="system-monitor-${VERSION}-linux-x86_64"
+          STAGE="$(mktemp -d)/${PKG}"
+          mkdir -p "$STAGE"
+          cp target/release/system-monitor "$STAGE/"
+          cp install.sh "$STAGE/"
+          cp README.md "$STAGE/"
+          mkdir -p "$STAGE/data/icons/hicolor/scalable/apps"
+          cp data/io.github.laduran.sysmon.desktop "$STAGE/data/"
+          cp data/icons/hicolor/scalable/apps/io.github.laduran.sysmon.svg \
+             "$STAGE/data/icons/hicolor/scalable/apps/"
+          tar -C "$(dirname "$STAGE")" -czf "${PKG}.tar.gz" "$PKG"
+          echo "ASSET=${PKG}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+          generate_release_notes: true
