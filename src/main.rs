@@ -31,7 +31,7 @@ fn main() {
         #[cfg(debug_assertions)]
         if let Some(display) = gtk4::gdk::Display::default() {
             gtk4::IconTheme::for_display(&display)
-                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons/hicolor"));
+                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons"));
         }
 
         let win = ApplicationWindow::builder()
