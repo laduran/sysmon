@@ -16,12 +16,20 @@ echo "Building release binary..."
 cargo build --release
 
 install -Dm755 target/release/system-monitor "$BIN_DIR/system-monitor"
-install -Dm644 "data/${APP_ID}.desktop" "$APPS_DIR/${APP_ID}.desktop"
 install -Dm644 "data/icons/hicolor/scalable/apps/${APP_ID}.svg" "$ICON_DIR/${APP_ID}.svg"
 
-if ! command -v system-monitor >/dev/null && [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-    echo "Note: $BIN_DIR is not on your PATH. Add it in your shell profile," \
-         "e.g. export PATH=\"\$HOME/.local/bin:\$PATH\""
+# Substitute the absolute installed binary path into Exec= so the launcher
+# entry works even if ~/.local/bin isn't on the desktop session's PATH.
+# The repo copy stays generic (Exec=system-monitor) for readability.
+mkdir -p "$APPS_DIR"
+sed "s|^Exec=system-monitor\$|Exec=$BIN_DIR/system-monitor|" \
+    "data/${APP_ID}.desktop" > "$APPS_DIR/${APP_ID}.desktop"
+chmod 644 "$APPS_DIR/${APP_ID}.desktop"
+
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo "Note: $BIN_DIR is not on your PATH. Add it in your shell profile to" \
+         "run 'system-monitor' from a terminal too, e.g." \
+         "export PATH=\"\$HOME/.local/bin:\$PATH\""
 fi
 
 command -v update-desktop-database >/dev/null && update-desktop-database "$APPS_DIR" || true
