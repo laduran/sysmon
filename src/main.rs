@@ -16,15 +16,28 @@ use gpu::GpuMonitor;
 use memory::MemoryMonitor;
 use ui::{Histories, create_ui, push_history};
 
+/// Must match the .desktop file basename and the installed icon name so
+/// desktop environments can associate running windows with the app's icon.
+const APP_ID: &str = "io.github.laduran.sysmon";
+
 fn main() {
-    let app = Application::builder()
-        .application_id("com.example.systemmonitor")
-        .build();
+    let app = Application::builder().application_id(APP_ID).build();
 
     app.connect_activate(|app| {
+        // In debug builds, point the icon theme at the icon shipped in the repo
+        // so `cargo run` shows the real icon without an `install.sh` run first.
+        // Release builds rely on the icon being installed into a themed icon
+        // directory (see install.sh).
+        #[cfg(debug_assertions)]
+        if let Some(display) = gtk4::gdk::Display::default() {
+            gtk4::IconTheme::for_display(&display)
+                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/data/icons/hicolor"));
+        }
+
         let win = ApplicationWindow::builder()
             .application(app)
             .title("System Monitor")
+            .icon_name(APP_ID)
             .default_width(500)
             .default_height(500)
             .build();

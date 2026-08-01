@@ -33,6 +33,19 @@ cargo build --release
 
 Requires GTK4 development libraries (`gtk4` / `libgtk-4-dev`).
 
+### Desktop integration
+
+`cargo run` / `./target/release/system-monitor` shows the app icon in its own
+window automatically. To also get the icon in your application launcher and
+file manager, install it for your user account (no root required):
+
+```sh
+./install.sh
+```
+
+This builds the release binary and copies it, a `.desktop` entry, and the
+icon into `~/.local/{bin,share/applications,share/icons}`.
+
 ## Planned
 
 - Network throughput graphs
